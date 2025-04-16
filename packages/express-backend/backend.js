@@ -1,8 +1,10 @@
 import express from "express";
+import cors from "cors";
 
 const app = express();
 const port = 8000;
 
+app.use(cors());
 app.use(express.json());
 
 const users = {
@@ -44,9 +46,17 @@ const findUserByName = (name) => {
 const findUserById = (id) =>
   users["users_list"].find((user) => user["id"] === id);
 
+const generateId = () => {
+  return Math.random().toString(36).substring(2, 10);
+};
+
 const addUser = (user) => {
-  users["users_list"].push(user);
-  return user;
+  const newUser = {
+    id: generateId(),
+    ...user
+  };
+  users["users_list"].push(newUser);
+  return newUser;
 };
 
 const deleteUserById = (id) => {
@@ -96,8 +106,8 @@ app.get("/users/:id", (req, res) => {
 
 app.post("/users", (req, res) => {
   const userToAdd = req.body;
-  addUser(userToAdd);
-  res.status(201).send(userToAdd);
+  const newUser = addUser(userToAdd);
+  res.status(201).send(newUser);
 });
 
 app.delete("/users/:id", (req, res) => {
@@ -105,14 +115,12 @@ app.delete("/users/:id", (req, res) => {
   const deleted = deleteUserById(id);
   
   if (deleted) {
-    res.status(200).send("User deleted successfully");
+    res.status(204).send();
   } else {
     res.status(404).send("User not found");
   }
 });
 
 app.listen(port, () => {
-  console.log(
-    `Example app listening at http://localhost:${port}`
-  );
+  console.log(`Example app listening at http://localhost:${port}`);
 });
