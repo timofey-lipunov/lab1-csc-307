@@ -1,118 +1,70 @@
 import express from "express";
+import cors from "cors";
+import mongoose from "mongoose";
+import userServices from "./models/user-services.js";
 
 const app = express();
 const port = 8000;
 
+mongoose.set("debug", true);
+mongoose
+  .connect("mongodb://localhost:27017/users", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .catch((error) => console.log(error));
+
+app.use(cors());
 app.use(express.json());
 
-const users = {
-  users_list: [
-    {
-      id: "xyz789",
-      name: "Charlie",
-      job: "Janitor"
-    },
-    {
-      id: "abc123",
-      name: "Mac",
-      job: "Bouncer"
-    },
-    {
-      id: "ppp222",
-      name: "Mac",
-      job: "Professor"
-    },
-    {
-      id: "yat999",
-      name: "Dee",
-      job: "Aspring actress"
-    },
-    {
-      id: "zap555",
-      name: "Dennis",
-      job: "Bartender"
+app.get("/users", async (req, res) => {
+  const { name, job } = req.query;
+  try {
+    let docs;
+    if (name && job) {
+      docs = await userServices.findUsersByNameAndJob(name, job);
+    } else {
+      docs = await userServices.getUsers(name, job);
     }
-  ]
-};
-
-const findUserByName = (name) => {
-  return users["users_list"].filter(
-    (user) => user["name"] === name
-  );
-};
-
-const findUserById = (id) =>
-  users["users_list"].find((user) => user["id"] === id);
-
-const addUser = (user) => {
-  users["users_list"].push(user);
-  return user;
-};
-
-const deleteUserById = (id) => {
-  const initialLength = users["users_list"].length;
-  users["users_list"] = users["users_list"].filter(
-    (user) => user["id"] !== id
-  );
-  return initialLength !== users["users_list"].length;
-};
-
-const findUsersByNameAndJob = (name, job) => {
-  return users["users_list"].filter(
-    (user) => user["name"] === name && user["job"] === job
-  );
-};
-
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});
-
-app.get("/users", (req, res) => {
-  const name = req.query.name;
-  const job = req.query.job;
-  
-  if (name !== undefined && job !== undefined) {
-    let result = findUsersByNameAndJob(name, job);
-    result = { users_list: result };
-    res.send(result);
-  } else if (name !== undefined) {
-    let result = findUserByName(name);
-    result = { users_list: result };
-    res.send(result);
-  } else {
-    res.send(users);
+    res.send({ users_list: docs });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
   }
 });
 
-app.get("/users/:id", (req, res) => {
-  const id = req.params["id"];
-  let result = findUserById(id);
-  if (result === undefined) {
-    res.status(404).send("Resource not found.");
-  } else {
-    res.send(result);
+app.get("/users/:id", async (req, res) => {
+  try {
+    const user = await userServices.findUserById(req.params.id);
+    if (!user) return res.status(404).send("Resource not found");
+    res.send(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
   }
 });
 
-app.post("/users", (req, res) => {
-  const userToAdd = req.body;
-  addUser(userToAdd);
-  res.status(201).send(userToAdd);
+app.post("/users", async (req, res) => {
+  try {
+    const saved = await userServices.addUser(req.body);
+    res.status(201).send(saved);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
+  }
 });
 
-app.delete("/users/:id", (req, res) => {
-  const id = req.params["id"];
-  const deleted = deleteUserById(id);
-  
-  if (deleted) {
-    res.status(200).send("User deleted successfully");
-  } else {
-    res.status(404).send("User not found");
+app.delete("/users/:id", async (req, res) => {
+  try {
+    const deleted = await userServices.deleteUserById(req.params.id);
+    if (deleted) res.send("User deleted successfully");
+    else res.status(404).send("User not found");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
   }
 });
 
 app.listen(port, () => {
-  console.log(
-    `Example app listening at http://localhost:${port}`
-  );
+  console.log(`Server listening at http://localhost:${port}`);
 });
